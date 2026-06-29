@@ -17,7 +17,7 @@ import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "toolkit"))
-from contract_gate import check  # noqa: E402
+from contract_gate import check, validate_doc  # noqa: E402
 
 SCHEMA_HINT = """Zwróć WYŁĄCZNIE JSON: {"schemaVersion":1,"contracts":{<route>:{
 "version","effect"(query|command),"reversible","inverseRoute","inp","out","errors","examples"}},"wires":[...]}.
@@ -39,30 +39,6 @@ def ask_llm(readme: str) -> dict:
     return json.loads(text[text.index("{"):text.rindex("}") + 1])
 
 
-def validate_doc(doc: dict) -> list[str]:
-    """Brama: ta sama logika konformansu co reszta systemu, na surowym dokumencie z LLM."""
-    C = doc.get("contracts", {})
-    problems: list[str] = []
-    for route, c in C.items():
-        if ("/query/" in route) != (c.get("effect") == "query"):
-            problems.append(f"{route}: efekt {c.get('effect')!r} nie zgadza się z czasownikiem URI")
-        if c.get("reversible"):
-            inv = c.get("inverseRoute")
-            if inv not in C:
-                problems.append(f"{route}: inverseRoute {inv!r} nie istnieje")
-            elif C[inv].get("inverseRoute") != route:
-                problems.append(f"{route}⟂{inv} nie jest wzajemne")
-        for i, ex in enumerate(c.get("examples", [])):
-            try:
-                check(c["inp"], ex["payload"], f"{route}#ex{i}.in")
-            except AssertionError as exc:
-                problems.append(str(exc))
-            if ex["result"].get("ok"):
-                try:
-                    check(c["out"], ex["result"], f"{route}#ex{i}.out")
-                except AssertionError as exc:
-                    problems.append(str(exc))
-    return problems
 
 
 def _mock(bad: bool) -> dict:
