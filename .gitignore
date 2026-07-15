@@ -11,3 +11,4 @@ dist/
 .idea/
 .vscode/
 /tmp/
+.code2llm_cache
